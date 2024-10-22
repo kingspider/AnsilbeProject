@@ -1,0 +1,25 @@
+---
+- name: Installing PostgreSQL
+  block:
+    - name: Install PostgreSQL repository
+      dnf:
+        name: "{{ postgresql_repo_url }}"
+        state: present
+        disable_gpg_check: yes
+        
+    - name: Disable default PostgreSQL module
+      command: dnf -qy module disable postgresql
+
+    - name: Install PostgreSQL server
+      dnf:
+        name: postgresql{{ postgresql_version }}-server
+        state: present
+
+    - name: Install additional PostgreSQL packages
+      dnf:
+        name:
+          - postgresql{{ postgresql_version }}-server
+          - python3-psycopg2
+        state: present
+    
+

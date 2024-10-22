@@ -1,0 +1,51 @@
+---
+# Include RedHat tasks when ansible_os_family == "RedHat"
+- name: Include install tasks for RedHat
+  ansible.builtin.include_tasks: redhat.yml
+  when:
+    - ansible_os_family == "RedHat"
+
+- name: Gather the rpm package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Initialize PostgreSQL database
+  command: "{{ postgresql_bin_path }}/postgresql-{{ postgresql_version }}-setup initdb"
+  args:
+    creates: "{{ postgresql_data_dir }}/PG_VERSION"
+
+- name: Ensure PostgreSQL is started and enabled
+  systemd:
+    name: "{{ postgresql_service_name }}"
+    state: started
+    enabled: yes
+
+- name: Configure PostgreSQL (Common)
+  become: yes
+  template:
+    src: postgresql.conf.j2
+    dest: "{{ postgresql_config_dir }}/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  notify: Restart PostgreSQL
+
+- name: Configure client
+  become: yes
+  template:
+    src: pg_hba.conf.j2
+    dest: "{{ postgresql_config_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  notify: Restart PostgreSQL
+
+- name: Check PostgreSQL version
+  become_user: postgres
+  command: "{{ postgresql_bin_path }}/psql -c 'SELECT version();'"
+  register: pg_version
+  changed_when: false
+
+- name: Display PostgreSQL version
+  debug:
+    var: pg_version.stdout_lines

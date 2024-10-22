@@ -1,0 +1,33 @@
+# PostgreSQL Client Authentication Configuration File
+# ===================================================
+#
+# This file controls: which hosts are allowed to connect, how clients
+# are authenticated, which PostgreSQL user names they can use, which
+# databases they can access.
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             0.0.0.0/0               scram-sha-256
+
+# IPv6 local connections:
+host    all             all             ::1/128                 scram-sha-256
+
+# Allow replication connections from the standby server (adjust the IP range as needed)
+host    replication     {{ replication_user }}    {{ hostvars[groups['db_servers'][1]]['ansible_default_ipv4']['address'] }}/32    scram-sha-256
+
+# Allow normal connections from other servers in the db_servers group
+{% for host in groups['db_servers'] %}
+{% if host != inventory_hostname %}
+host    all             all             {{ hostvars[host]['ansible_default_ipv4']['address'] }}/32    scram-sha-256
+{% endif %}
+{% endfor %}
+
+# If you need to provide access for other specific IPs or IP ranges, add them here:
+# host    all             all             192.168.1.0/24         scram-sha-256
+
+# Note: Use of 'scram-sha-256' method requires SSL to be enabled on the server for secure password transmission

@@ -1,0 +1,14 @@
+---
+postgresql_version: "16"
+postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+postgresql_config_dir: "{{ postgresql_data_dir }}"
+postgresql_bin_path: "/usr/pgsql-{{ postgresql_version }}/bin"
+postgresql_service_name: "postgresql-{{ postgresql_version }}"
+postgresql_port: 5432
+postgresql_max_connections: 100
+postgresql_shared_buffers: "128MB"
+deployment_type: "standalone"
+primary_host: "{{ groups['db_servers'][0] }}"
+replication_user: "replicator"
+replication_password: "strong_password_here"
+postgresql_repo_url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-{{ ansible_distribution_major_version }}-x86_64/pgdg-redhat-repo-latest.noarch.rpm"

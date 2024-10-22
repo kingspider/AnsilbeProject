@@ -1,0 +1,12 @@
+---
+- name: Populate service facts
+  ansible.builtin.service_facts:
+
+# Include Firewalld tasks when service is define and running
+- name: Include tasks for Firewalld
+  ansible.builtin.include_tasks: firewalld.yml
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_facts.services['firewalld.service'] is defined
+    - ansible_facts.services['firewalld.service'].state == "running"
+

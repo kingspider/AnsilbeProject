@@ -1,0 +1,130 @@
+---
+
+# Temporary, Inventory will use FQDN 
+- name: Add primary server to /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[primary_host]['ansible_default_ipv4']['address'] }} {{ primary_host }}"
+  when: inventory_hostname != primary_host
+
+- name: Ensure replication user exists on primary
+  become_user: postgres
+  postgresql_user:
+    name: "{{ replication_user }}"
+    password: "{{ replication_password }}"
+    role_attr_flags: REPLICATION
+  when: inventory_hostname == primary_host
+
+- name: Configure primary PostgreSQL for replication
+  template:
+    src: primary_postgresql.conf.j2
+    dest: "{{ postgresql_config_dir }}/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: inventory_hostname == primary_host
+  notify: Restart PostgreSQL
+
+- name: Configure pg_hba.conf on primary for replication
+  template:
+    src: primary_pg_hba.conf.j2
+    dest: "{{ postgresql_config_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: inventory_hostname == primary_host
+  notify: Restart PostgreSQL
+
+- name: Ensure PostgreSQL is started on primary
+  systemd:
+    name: "{{ postgresql_service_name }}"
+    state: started
+    enabled: yes
+  when: inventory_hostname == primary_host
+
+- name: Wait for PostgreSQL to be ready on primary
+  wait_for:
+    port: "{{ postgresql_port }}"
+    delay: 10
+    timeout: 60
+  when: inventory_hostname == primary_host
+
+- name: Stop PostgreSQL on standby
+  systemd:
+    name: "{{ postgresql_service_name }}"
+    state: stopped
+  when: inventory_hostname != primary_host
+
+- name: Clear existing data directory on standby
+  file:
+    path: "{{ postgresql_data_dir }}"
+    state: absent
+  when: inventory_hostname != primary_host
+
+- name: Recreate empty data directory on standby
+  file:
+    path: "{{ postgresql_data_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+  when: inventory_hostname != primary_host
+
+- name: Perform initial backup for standby
+  become: true
+  become_user: postgres
+  command: >
+    pg_basebackup 
+    -h {{ hostvars[primary_host]['ansible_default_ipv4']['address'] }} 
+    -D {{ postgresql_data_dir }} 
+    -P 
+    -U {{ replication_user }}
+    --password
+  environment:
+    PGPASSWORD: "{{ replication_password }}"
+  async: 600
+  poll: 5
+  when: inventory_hostname != primary_host
+
+- name: Configure standby PostgreSQL for replication
+  template:
+    src: standby_postgresql.conf.j2
+    dest: "{{ postgresql_config_dir }}/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: inventory_hostname != primary_host
+
+- name: Create standby.signal file
+  file:
+    path: "{{ postgresql_data_dir }}/standby.signal"
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: '0600'
+  when: inventory_hostname != primary_host
+
+- name: Start PostgreSQL on standby
+  systemd:
+    name: "{{ postgresql_service_name }}"
+    state: started
+    enabled: yes
+  when: inventory_hostname != primary_host
+
+- name: Wait for PostgreSQL to start on standby
+  wait_for:
+    port: "{{ postgresql_port }}"
+    delay: 10
+    timeout: 60
+  when: inventory_hostname != primary_host
+
+- name: Check replication status on primary
+  become_user: postgres
+  command: psql -c "SELECT * FROM pg_stat_replication;"
+  register: replication_status
+  when: inventory_hostname == primary_host
+
+- name: Display replication status
+  debug:
+    var: replication_status.stdout_lines
+  when: inventory_hostname == primary_host

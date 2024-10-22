@@ -1,0 +1,53 @@
+---
+- name: Ensure backup directory exists
+  file:
+    path: "{{ postgresql_backup_dir }}"
+    state: directory
+    owner: "{{ postgresql_backup_user }}"
+    group: "{{ postgresql_backup_user }}"
+    mode: '0700'
+
+- name: Get list of databases
+  become_user: "{{ postgresql_backup_user }}"
+  command: "{{ postgresql_bin_path }}/psql -t -c \"SELECT datname FROM pg_database WHERE datistemplate = false;\""
+  register: database_list
+  changed_when: false
+  when: postgresql_databases | length == 0
+
+- name: Set databases to backup
+  set_fact:
+    databases_to_backup: "{{ postgresql_databases if postgresql_databases | length > 0 else (database_list.stdout_lines | default([]) | map('trim') | list) }}"
+
+- name: Display databases to backup
+  debug:
+    var: databases_to_backup
+
+- name: Backup PostgreSQL databases
+  become_user: "{{ postgresql_backup_user }}"
+  command: "{{ postgresql_bin_path }}/pg_dump -Fc {{ item }} -f {{ postgresql_backup_dir }}/{{ item }}_{{ postgresql_backup_filename }}"
+  loop: "{{ databases_to_backup }}"
+  when: databases_to_backup | length > 0
+
+- name: Remove old backups
+  find:
+    paths: "{{ postgresql_backup_dir }}"
+    patterns: "*.sql"
+    age: "{{ postgresql_backup_keep_days }}d"
+    recurse: no
+  register: old_backups
+
+- name: Delete old backup files
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_backups.files }}"
+
+- name: List successful backups
+  find:
+    paths: "{{ postgresql_backup_dir }}"
+    patterns: "*{{ postgresql_backup_filename }}"
+  register: backup_files
+
+- name: Display backup results
+  debug:
+    msg: "Successfully created backups: {{ backup_files.files | map(attribute='path') | list }}"

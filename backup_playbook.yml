@@ -1,0 +1,6 @@
+---
+- name: Backup PostgreSQL Databases
+  hosts: all
+  become: yes
+  roles:
+    - ssc.postgres.backup_databases

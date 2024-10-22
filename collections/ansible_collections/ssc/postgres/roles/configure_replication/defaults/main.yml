@@ -1,0 +1,11 @@
+---
+postgresql_version: "16"
+postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+postgresql_config_dir: "{{ postgresql_data_dir }}"
+postgresql_bin_path: "/usr/pgsql-{{ postgresql_version }}/bin"
+postgresql_service_name: "postgresql-{{ postgresql_version }}"
+postgresql_port: 5432
+deployment_type: "standalone"
+primary_host: "{{ groups['db_servers'][0] }}"
+replication_user: "replicator"
+replication_password: "strong_password_here"

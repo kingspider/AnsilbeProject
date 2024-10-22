@@ -1,0 +1,12 @@
+---
+- name: Install and Configure PostgreSQL
+  hosts: db_servers
+  become: yes
+
+  roles:
+    - role: ssc.postgres.install_standalone
+    - role: ssc.postgres.configure_firewall
+    - role: ssc.postgres.configure_replication
+      when: deployment_type == "ha"
+    - role: ssc.postgres.create_databases
+    - role: ssc.postgres.create_users

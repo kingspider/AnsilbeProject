@@ -1,0 +1,8 @@
+---
+postgresql_version: "16"
+postgresql_bin_path: "/usr/pgsql-{{ postgresql_version }}/bin"
+postgresql_backup_dir: "/var/lib/pgsql/backups"
+postgresql_backup_filename: "postgres_backup_{{ ansible_date_time.iso8601 }}.sql"
+postgresql_databases: []  # List of databases to backup. If empty, all databases will be backed up.
+postgresql_backup_keep_days: 7  # Number of days to keep backups
+postgresql_backup_user: "postgres"

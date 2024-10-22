@@ -1,0 +1,12 @@
+---
+- name: Creating user(s)
+  block:
+
+  - name: Create postgres new user
+    become: true
+    become_user: postgres
+    ansible.builtin.postgresql_user:
+      name: "{{ item.username }}"
+      password: "{{ item.password }}"
+      role_attr_flags: SUPERUSER
+    loop: "{{ accounts }}"

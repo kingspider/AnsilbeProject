@@ -1,0 +1,9 @@
+- name: Creating database(s)
+  block:
+    - name: Create a new database with name "{{ item.name }}"
+      become: true
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ item.name }}"
+        comment: "{{ item.comment }}"
+      loop: "{{ databases }}"
